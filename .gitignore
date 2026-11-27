@@ -1,0 +1,5 @@
+﻿.venv/
+venv/
+fb_profile/
+__pycache__/
+*.pyc

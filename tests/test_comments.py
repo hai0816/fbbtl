@@ -1,0 +1,123 @@
+"""Các tình huống đọc bình luận dựa trên nhãn thực tế của Facebook."""
+import io
+import unittest
+from contextlib import redirect_stdout
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
+
+from fb_scraper.posts import comments as collector
+
+
+class CommentTests(unittest.IsolatedAsyncioTestCase):
+    def comment(self, identity, text=None):
+        return {"id": str(identity), "label": f"Bình luận dưới tên Người {identity} vào 18 giờ trước", "text": text or f"Người {identity}\nNội dung bình luận {identity}\nTrả lời"}
+
+    def test_actual_vietnamese_label_and_english_labels_are_accepted(self):
+        collected = {}
+        records = [self.comment(1)]
+        for index, label in enumerate(("Bình luận của Người A", "Comment by User B", "Reply by User C"), 2):
+            records.append({"id": str(index), "label": label, "text": f"Comment {index}"})
+        records.append({"id": "post", "label": "Bài viết của Page", "text": "Nội dung bài viết"})
+        collector.merge_comments(collected, records)
+        self.assertEqual(len(collected), 4)
+        self.assertNotIn("post", [comment["comment_id"] for comment in collected.values()])
+
+    def test_reply_label_with_boi_is_accepted_as_reply(self):
+        collected = {}
+        collector.merge_comments(collected, [{"id": "7", "label": "Trả lời bởi Nguyễn Văn A", "text": "Cảm ơn bạn"}])
+        reply, = collected.values()
+        self.assertEqual(reply["author"], "Nguyễn Văn A")
+        self.assertTrue(reply["is_reply"])
+
+    def test_limit_counts_root_comments_and_keeps_their_replies(self):
+        roots = [{"comment_id": str(index), "text": f"Gốc {index}", "is_reply": False} for index in range(1, 4)]
+        replies = [{"comment_id": "1a", "text": "Reply 1", "is_reply": True, "parent_comment_id": "1", "root_comment_id": "1"},
+                   {"comment_id": "1b", "text": "Reply cấp 2", "is_reply": True, "parent_comment_id": "1a"},
+                   {"comment_id": "3a", "text": "Reply của gốc bị cắt", "is_reply": True, "parent_comment_id": "3"},
+                   {"comment_id": "x", "text": "Chưa rõ cha", "is_reply": True}]
+        selected = collector.select_threads(roots + replies, 2)
+        self.assertEqual([item["comment_id"] for item in selected], ["1", "2", "1a", "1b", "x"])
+
+    def test_separator_only_text_is_not_saved_as_comment(self):
+        collected = {}
+        collector.merge_comments(collected, [self.comment(1, "·"), self.comment(2, "Nội dung\n·")])
+        self.assertEqual([comment["text"] for comment in collected.values()], ["Nội dung"])
+
+    def test_same_comment_id_updates_expanded_text_without_duplicate(self):
+        collected = {}
+        collector.merge_comments(collected, [self.comment(1, "Nội dung… Xem thêm")])
+        collector.merge_comments(collected, [self.comment(1, "Nội dung đầy đủ"), self.comment(2)])
+        self.assertEqual(len(collected), 2)
+        self.assertEqual(collected[("id", "1")]["text"], "Nội dung đầy đủ")
+
+    async def scrape_fixture(self, snapshots, requested):
+        page = SimpleNamespace(
+            url="https://www.facebook.com/page/posts/123", wait_for_selector=AsyncMock(), goto=AsyncMock(), close=AsyncMock(),
+            evaluate=AsyncMock(side_effect=snapshots),
+        )
+        context = SimpleNamespace(new_page=AsyncMock(return_value=page))
+        load_more = AsyncMock(return_value=True)
+        with patch.object(collector, "human_pause", new=AsyncMock()), \
+             patch.object(collector, "expand_see_more", new=AsyncMock()), \
+             patch.object(collector, "expand_replies", new=AsyncMock(return_value=False)), \
+             patch.object(collector, "load_more_comments", new=load_more):
+            result = await collector.scrape_top_comments(context, page.url, requested)
+        page.close.assert_awaited_once()
+        return result, load_more
+
+    async def test_loads_more_and_deduplicates_batches_to_requested_limit(self):
+        first = [self.comment(index) for index in range(1, 7)]
+        second = [self.comment(index) for index in range(1, 22)]
+        result, load_more = await self.scrape_fixture([first, second], 20)
+        self.assertEqual(len(result), 20)
+        self.assertEqual(len({comment["comment_id"] for comment in result}), 20)
+        self.assertEqual(result[0]["text"], first[0]["text"])
+        load_more.assert_awaited_once()
+
+    async def test_partial_comments_survive_later_browser_error(self):
+        result, _ = await self.scrape_fixture([[self.comment(1)], RuntimeError("navigation failed")], 20)
+        self.assertEqual([comment["text"] for comment in result], [self.comment(1)["text"]])
+
+    async def test_large_request_is_not_cut_off_after_40_batches(self):
+        snapshots = [[self.comment(index) for index in range(1, batch * 10 + 1)] for batch in range(1, 46)]
+        with redirect_stdout(io.StringIO()):
+            result, load_more = await self.scrape_fixture(snapshots, 450)
+        self.assertEqual(len(result), 450)
+        self.assertEqual(load_more.await_count, 44)
+
+    async def test_stops_when_no_additional_comments_load(self):
+        first = [self.comment(1)]
+        result, load_more = await self.scrape_fixture([first] * 4, 20)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(load_more.await_count, 3)
+
+    def test_load_more_filter_does_not_match_send_or_reply_buttons(self):
+        for name in ("Xem thêm bình luận", "View more comments", "Xem các bình luận trước"):
+            self.assertRegex(name, collector.COMMENT_MORE_RE)
+        for name in ("Đăng bình luận", "Trả lời", "Ẩn hoặc báo cáo bình luận này", "Xem 4 câu trả lời"):
+            self.assertNotRegex(name, collector.COMMENT_MORE_RE)
+
+    def test_reply_loader_accepts_expanders_but_never_reply_or_send_actions(self):
+        for name in ("Xem 4 câu trả lời", "Xem thêm phản hồi", "View 1 reply", "View 5 more replies", "See more replies"):
+            self.assertRegex(name, collector.REPLY_MORE_RE)
+        for name in ("Trả lời", "Reply", "Send", "Đăng bình luận", "Ẩn câu trả lời"):
+            self.assertNotRegex(name, collector.REPLY_MORE_RE)
+
+    def test_same_text_with_different_ids_remains_separate(self):
+        collected = {}
+        collector.merge_comments(collected, [self.comment(1, "Quan tâm"), self.comment(2, "Quan tâm")])
+        self.assertEqual(len(collected), 2)
+
+    def test_reply_retains_parent_and_author(self):
+        collected = {}
+        raw = self.comment(2, "Trả lời bình luận 1")
+        raw.update(parent_comment_id="1", root_comment_id="1", is_reply=True, author="Người B")
+        collector.merge_comments(collected, [self.comment(1), raw])
+        reply = list(collected.values())[1]
+        self.assertEqual((reply["comment_id"], reply["parent_comment_id"], reply["root_comment_id"]), ("2", "1", "1"))
+        self.assertTrue(reply["is_reply"])
+        self.assertEqual(reply["author"], "Người B")
+
+
+if __name__ == "__main__":
+    unittest.main()

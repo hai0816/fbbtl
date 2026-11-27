@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Phát hiện dấu hiệu lừa đảo tuyển dụng, đầu tư trong dữ liệu Facebook đã thu thập.">
+  <title>Phân tích rủi ro · FB Collector</title>
+  <script>try{const t=localStorage.getItem('fbc-theme');if(t)document.documentElement.dataset.theme=t}catch{}</script>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/analysis.css">
+  <script type="module" src="/analysis.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">f</span><span class="brand-name">FB Collector</span></a>
+    <nav class="nav" aria-label="Điều hướng">
+      <a class="nav-link" href="/#collect" title="Thu thập"><span data-icon="grid"></span><span class="nav-text">Thu thập</span></a>
+      <a class="nav-link" href="/#results" title="Kết quả"><span data-icon="layers"></span><span class="nav-text">Kết quả</span></a>
+      <a class="nav-link" href="/#history" title="Lịch sử"><span data-icon="clock"></span><span class="nav-text">Lịch sử</span></a>
+      <a class="nav-link active" href="/analysis" title="Phân tích rủi ro" aria-current="page"><span data-icon="shield"></span><span class="nav-text">Phân tích rủi ro</span><span id="nav-flagged" class="nav-count" title="Bài gắn cờ">0</span></a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="browser-label"><i id="browser-dot"></i><span id="browser-state">Đang kiểm tra Chrome…</span></div>
+      <button id="open-browser" class="sidebar-button" type="button" title="Mở Chrome đăng nhập"><span data-icon="external"></span><span>Mở Chrome đăng nhập</span></button>
+      <button id="theme-toggle" class="sidebar-button ghost" type="button"></button>
+    </div>
+  </aside>
+  <main>
+    <header class="page-header">
+      <div><h1>Phân tích rủi ro</h1><p class="page-sub" id="analysis-meta">Đang tải…</p></div>
+      <div class="page-actions">
+        <a id="job-pill" class="status-badge running" href="/#collect" hidden><i></i><span>Đang thu thập</span></a>
+        <button id="run-analysis" class="secondary-button" type="button"><span data-icon="refresh"></span>Phân tích lại</button>
+        <a id="export-all" class="secondary-button" href="/api/analysis/export" download><span data-icon="download"></span>Xuất CSV</a>
+      </div>
+    </header>
+    <div id="connection-error" class="alert" role="alert" hidden>Không kết nối được máy chủ. Kiểm tra cửa sổ terminal còn chạy rồi tải lại trang.</div>
+    <p class="notice"><span data-icon="info"></span>Điểm rủi ro là mức ưu tiên kiểm tra thủ công, không phải kết luận lừa đảo. Số liệu chỉ phản ánh dữ liệu đã thu thập.</p>
+
+    <nav class="tabs" role="tablist" aria-label="Chức năng phân tích">
+      <button role="tab" id="tab-btn-overview" data-tab="overview" aria-controls="tab-overview" aria-selected="true">Tổng quan</button>
+      <button role="tab" id="tab-btn-check" data-tab="check" aria-controls="tab-check" aria-selected="false">Kiểm tra nhanh</button>
+      <button role="tab" id="tab-btn-review" data-tab="review" aria-controls="tab-review" aria-selected="false">Duyệt bài<span id="tab-pending" class="tab-count" hidden></span></button>
+      <button role="tab" id="tab-btn-actors" data-tab="actors" aria-controls="tab-actors" aria-selected="false">Tác giả &amp; nơi đăng</button>
+      <button role="tab" id="tab-btn-similar" data-tab="similar" aria-controls="tab-similar" aria-selected="false">Nội dung tương tự</button>
+      <button role="tab" id="tab-btn-rules" data-tab="rules" aria-controls="tab-rules" aria-selected="false">Rule &amp; ngưỡng</button>
+      <button role="tab" id="tab-btn-keywords" data-tab="keywords" aria-controls="tab-keywords" aria-selected="false">Từ khóa &amp; nguồn</button>
+      <button role="tab" id="tab-btn-import" data-tab="import" aria-controls="tab-import" aria-selected="false">Nhập dữ liệu</button>
+    </nav>
+
+    <section id="tab-overview" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-overview">
+      <div id="kpis" class="kpi-grid"></div>
+      <div class="grid-2">
+        <article class="panel card"><header class="card-head"><h2>Phân bố mức rủi ro</h2></header><div id="distribution"></div></article>
+        <article class="panel card"><header class="card-head"><h2>Cần ưu tiên kiểm tra</h2><button class="text-button" type="button" data-goto="review" data-level="FLAGGED" data-review="PENDING">Xem tất cả →</button></header><div id="priority" class="priority-list"></div></article>
+      </div>
+      <article class="panel card"><header class="card-head"><div><h2>Theo thời gian</h2><p class="card-sub">Ngày đăng; bài thiếu ngày đăng dùng ngày thu thập. 31 ngày gần nhất có dữ liệu.</p></div><div id="timeline-legend" class="legend"></div></header><div id="timeline" class="chart" role="img" aria-label="Biểu đồ số bài và số bài gắn cờ theo ngày"></div><div id="chart-tip" class="chart-tip" hidden></div></article>
+      <div class="grid-2">
+        <article class="panel card"><header class="card-head"><div><h2>Rule kích hoạt nhiều nhất</h2><p class="card-sub">Bấm một rule để xem các bài liên quan.</p></div><div class="legend"><span><i class="sw sw-bar"></i>Gắn cờ</span><span><i class="sw sw-soft"></i>Không gắn cờ</span></div></header><div id="rule-bars" class="bars"></div></article>
+        <article class="panel card"><header class="card-head"><div><h2>Phân loại bài viết</h2><p class="card-sub">Theo nhóm dấu hiệu chiếm ưu thế.</p></div></header><div id="category-bars" class="bars"></div></article>
+      </div>
+      <div class="grid-2">
+        <article class="panel card"><header class="card-head"><div><h2>Cụm từ lặp lại</h2><p class="card-sub">Trong các bài gắn cờ, theo số bài.</p></div></header><div id="phrases" class="chips"></div></article>
+        <article class="panel card"><header class="card-head"><div><h2>Liên kết, tên miền, SĐT dùng lại</h2><p class="card-sub">Xuất hiện ở từ 2 bài trở lên.</p></div></header><div id="reused"></div></article>
+      </div>
+    </section>
+
+    <section id="tab-check" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-check" hidden>
+      <div class="check-grid">
+        <article class="panel card"><header class="card-head"><div><h2>Bài viết này có dấu hiệu lừa đảo không?</h2><p class="card-sub">Dán nội dung một bài đăng (tuyển dụng, đầu tư, kiếm tiền online…). Kết quả không được lưu.</p></div></header>
+          <form id="check-form" class="check-form"><textarea name="text" rows="11" maxlength="20000" required placeholder="Dán nội dung bài viết vào đây…" aria-label="Nội dung bài viết cần kiểm tra"></textarea>
+            <div class="check-actions"><span id="check-count" class="muted">0 ký tự</span><span class="spacer"></span><button id="check-sample" class="text-button" type="button">Dùng ví dụ</button><button id="check-clear" class="text-button" type="button">Xóa</button><button class="primary-button" type="submit" title="Ctrl + Enter"><span data-icon="shield"></span>Đánh giá</button></div>
+          </form></article>
+        <article id="check-result" class="panel card check-result is-empty" aria-live="polite"><p class="empty">Kết quả đánh giá sẽ hiện ở đây.</p></article>
+      </div>
+    </section>
+    <section id="tab-review" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-review" hidden>
+      <div class="toolbar">
+        <label class="search-box grow"><span data-icon="search"></span><input id="filter-q" type="search" placeholder="Tìm nội dung, tác giả, mã rule…" aria-label="Tìm"></label>
+        <select id="filter-level" aria-label="Mức rủi ro"><option value="">Mọi mức</option><option value="FLAGGED">Gắn cờ (TB + Cao)</option><option value="HIGH">Cao</option><option value="MEDIUM">Trung bình</option><option value="LOW">Thấp</option></select>
+        <select id="filter-category" aria-label="Phân loại"><option value="">Mọi phân loại</option></select>
+        <select id="filter-review" aria-label="Trạng thái duyệt"><option value="">Mọi trạng thái</option><option value="PENDING">Chờ duyệt</option><option value="CONFIRMED_SCAM">Xác nhận lừa đảo</option><option value="FALSE_POSITIVE">Báo nhầm</option><option value="NEEDS_INFO">Cần thêm thông tin</option></select>
+        <select id="filter-sort" aria-label="Sắp xếp"><option value="score">Điểm cao nhất</option><option value="recent">Mới nhất</option><option value="oldest">Cũ nhất</option></select>
+      </div>
+      <div class="list-head"><span class="list-summary"><span id="risk-summary" class="muted"></span><span id="filter-scope" class="scope-chip" hidden></span></span><div class="list-actions"><button id="filter-reset" class="text-button" type="button" hidden>Xóa bộ lọc</button><a id="export-filtered" class="secondary-button" href="/api/analysis/export" download><span data-icon="download"></span>Xuất kết quả lọc</a></div></div>
+      <div id="risk-list" class="panel risk-list" aria-live="polite"></div>
+      <div class="pagination"><span id="risk-page"></span><div><button id="risk-prev" class="page-button" type="button" aria-label="Trang trước">←</button><button id="risk-next" class="page-button" type="button" aria-label="Trang sau">→</button></div></div>
+    </section>
+
+    <section id="tab-actors" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-actors" hidden>
+      <div class="toolbar">
+        <label class="search-box grow"><span data-icon="search"></span><input id="actors-q" type="search" placeholder="Tìm tên tác giả hoặc nơi đăng…" aria-label="Tìm tác giả hoặc nơi đăng"></label>
+        <select id="actors-min" aria-label="Số bài tối thiểu"><option value="1">Từ 1 bài</option><option value="2">Từ 2 bài</option><option value="3">Từ 3 bài</option><option value="5">Từ 5 bài</option></select>
+        <label class="inline check"><input id="actors-flagged" type="checkbox" checked>Chỉ hiện có bài gắn cờ</label>
+      </div>
+      <p id="actors-summary" class="muted actors-summary"></p>
+      <article class="panel card"><header class="card-head"><div><h2>Nơi đăng nhiều bài gắn cờ</h2><p class="card-sub">Nhóm, trang hoặc hồ sơ chứa bài viết. Bấm một dòng để xem các bài.</p></div><a id="export-places" class="secondary-button" href="/api/analysis/actors/export?kind=places" download><span data-icon="download"></span>Xuất CSV</a></header>
+        <div class="table-wrap"><table id="places-table" class="actors-table"><thead><tr><th>Nơi đăng</th><th class="num">Bài</th><th class="num">Gắn cờ</th><th class="num">Cao</th><th class="num">Xác nhận</th><th>Tỷ lệ gắn cờ</th><th class="num">Tác giả</th></tr></thead><tbody></tbody></table></div><div id="places-note" class="table-note"></div></article>
+      <article class="panel card"><header class="card-head"><div><h2>Tác giả nhiều bài gắn cờ</h2><p class="card-sub">Là tín hiệu để ưu tiên kiểm tra, không phải kết luận tài khoản lừa đảo.</p></div><a id="export-authors" class="secondary-button" href="/api/analysis/actors/export?kind=authors" download><span data-icon="download"></span>Xuất CSV</a></header>
+        <div class="table-wrap"><table id="authors-table" class="actors-table"><thead><tr><th>Tác giả</th><th class="num">Bài</th><th class="num">Gắn cờ</th><th class="num">Cao</th><th class="num">Xác nhận</th><th class="num">Điểm TB</th><th class="num">Cao nhất</th></tr></thead><tbody></tbody></table></div><div id="authors-note" class="table-note"></div></article>
+    </section>
+    <section id="tab-similar" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-similar" hidden>
+      <div class="toolbar"><label class="inline">Ngưỡng tương đồng <input id="sim-threshold" type="range" min="0.2" max="0.95" step="0.05" value="0.5"><output id="sim-value" class="mono">0.50</output></label><label class="inline check"><input id="sim-flagged" type="checkbox"> Chỉ bài gắn cờ</label></div>
+      <p class="muted" id="sim-note"></p>
+      <div id="clusters" class="clusters"></div>
+    </section>
+
+    <section id="tab-rules" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-rules" hidden>
+      <div class="grid-2">
+        <article class="panel card"><header class="card-head"><h2>Ngưỡng &amp; cấu hình</h2></header>
+          <form id="settings-form" class="settings">
+            <label>Ngưỡng Trung bình<input name="medium" type="number" min="1" max="99"><small>Điểm từ mức này trở lên được gắn cờ.</small></label>
+            <label>Ngưỡng Cao<input name="high" type="number" min="2" max="100"><small>Phải lớn hơn ngưỡng Trung bình.</small></label>
+            <label>Hệ số bài cảnh báo<input name="warning_context_factor" type="number" min="0" max="1" step="0.05"><small>Nhân điểm khi bài mang tính cảnh báo (0–1).</small></label>
+            <label>Thu nhập bất thường (đ/ngày)<input name="income_per_day_threshold" type="number" min="0" step="50000"><small>Mức thu nhập công bố bị coi là phi thực tế.</small></label>
+            <label>Lợi nhuận bất thường (%/tháng)<input name="return_per_month_threshold" type="number" min="0" step="1"><small>Mức lợi nhuận cam kết bị coi là phi thực tế.</small></label>
+            <label>Ngưỡng tương đồng<input name="similarity_threshold" type="number" min="0.05" max="1" step="0.05"><small>Mặc định cho tab Nội dung tương tự.</small></label>
+            <button class="primary-button" type="submit">Lưu và chấm lại</button>
+          </form>
+        </article>
+        <article class="panel card"><header class="card-head"><div><h2>Đánh giá theo nhãn</h2><p class="card-sub">Dùng kết quả duyệt và nhãn trong dataset đã nhập.</p></div></header><div id="evaluation"></div></article>
+      </div>
+      <article class="panel card"><header class="card-head"><div><h2>Bộ rule</h2><p class="card-sub">Rule cùng nhóm tương đương chỉ cộng điểm một lần. Thay đổi sẽ chấm lại toàn bộ.</p></div><label class="search-box"><span data-icon="search"></span><input id="rule-filter" type="search" placeholder="Lọc rule…" aria-label="Lọc rule"></label></header>
+        <div class="table-wrap"><table id="rules-table"><thead><tr><th>ID</th><th>Rule</th><th>Nhóm</th><th>Nhóm tương đương</th><th class="num">Ưu tiên</th><th class="num">Trọng số</th><th>Bật</th></tr></thead><tbody></tbody></table></div></article>
+    </section>
+
+    <section id="tab-keywords" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-keywords" hidden>
+      <div class="grid-2">
+        <article class="panel card"><header class="card-head"><h2>Bộ từ khóa</h2><span id="kw-count" class="muted"></span></header>
+          <form id="keyword-form" class="row-form"><input name="keyword" required maxlength="120" placeholder="Thêm từ khóa…" aria-label="Từ khóa mới"><select name="category" aria-label="Nhóm"><option value="JOB">Tuyển dụng</option><option value="INVESTMENT">Đầu tư</option><option value="OTHER">Khác</option></select><button class="secondary-button" type="submit">Thêm</button></form>
+          <div id="keywords"></div>
+        </article>
+        <div class="stack">
+          <article class="panel card"><header class="card-head"><h2>Thu thập theo từ khóa đang bật</h2></header>
+            <form id="collect-form" class="collect-form">
+              <div class="row-form"><select name="category" aria-label="Nhóm từ khóa"><option value="">Mọi nhóm</option><option value="JOB">Tuyển dụng</option><option value="INVESTMENT">Đầu tư</option><option value="OTHER">Khác</option></select><label class="inline">Bài / nguồn<input name="max_posts" type="number" min="1" max="500" value="20"></label><label class="inline">Bình luận<input name="max_comments" type="number" min="0" max="5000" value="10"></label></div>
+              <div class="row-form"><label class="inline check"><input name="ocr" type="checkbox"> OCR</label><label class="inline check"><input name="recent_first" type="checkbox" checked> Bài mới nhất</label><label class="inline check" title="Bỏ chọn khi cần thu cả mẫu bình thường để đánh giá độ chính xác."><input name="scam_filter" type="checkbox" checked> Chỉ giữ bài có dấu hiệu</label></div>
+              <button class="primary-button" type="submit"><span data-icon="play"></span>Bắt đầu thu thập</button>
+            </form>
+          </article>
+          <article class="panel card"><header class="card-head"><div><h2>Mở rộng từ khóa</h2><p class="card-sub">Trích cụm từ đặc trưng từ bài đáng ngờ; chỉ thêm khi bạn chấp nhận.</p></div></header>
+            <form id="expand-form" class="expand"><textarea name="text" rows="3" maxlength="5000" placeholder="Dán nội dung một bài (tùy chọn). Để trống để dùng các bài đã gắn cờ."></textarea><div class="row-form"><select name="level" aria-label="Mức tối thiểu"><option value="MEDIUM">Từ mức Trung bình</option><option value="HIGH">Chỉ mức Cao</option></select><button class="secondary-button" type="submit">Đề xuất từ khóa</button></div></form>
+            <div id="suggestions"></div>
+          </article>
+        </div>
+      </div>
+      <article class="panel card"><header class="card-head"><div><h2>Nguồn theo dõi</h2><p class="card-sub">Chỉ thêm Trang/nhóm công khai bạn được phép nghiên cứu. Có thể chạy định kỳ bằng <code>main.py monitor</code>.</p></div></header>
+        <form id="source-form" class="row-form"><input name="url" required placeholder="https://www.facebook.com/ten.trang hoặc /groups/…" aria-label="URL nguồn"><select name="kind" aria-label="Loại"><option value="auto">Tự nhận diện</option><option value="page">Trang</option><option value="profile">Cá nhân</option><option value="group">Nhóm</option></select><button class="secondary-button" type="submit">Thêm nguồn</button><button id="collect-monitored" class="secondary-button" type="button"><span data-icon="play"></span>Thu thập nguồn theo dõi</button></form>
+        <div class="table-wrap"><table id="sources-table"><thead><tr><th>Nguồn</th><th>Loại</th><th>Lần gần nhất</th><th>Trạng thái</th><th class="num">Bài</th><th class="num">Gắn cờ</th><th>Theo dõi</th></tr></thead><tbody></tbody></table></div>
+      </article>
+    </section>
+
+    <section id="tab-import" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-import" hidden>
+      <article class="panel card"><header class="card-head"><div><h2>Nhập dataset</h2><p class="card-sub">CSV, JSON, JSONL hoặc SQLite, tối đa 20 MB. Cột được nhận diện tự động (post_id, content, created_time, author, url, label…); bài trùng post_id được cập nhật.</p></div></header>
+        <form id="import-form" class="import-form">
+          <label class="dropzone" id="dropzone"><span data-icon="upload"></span><strong id="file-name">Chọn tệp hoặc kéo thả vào đây</strong><small>.csv · .json · .jsonl · .db · .sqlite</small><input name="file" type="file" accept=".csv,.json,.jsonl,.db,.sqlite,.sqlite3" required></label>
+          <div class="settings"><label>Tên dataset<input name="dataset" maxlength="80" placeholder="Mặc định: tên tệp"></label><label>Định dạng<select name="format"><option value="">Tự nhận diện</option><option value="csv">CSV</option><option value="json">JSON</option><option value="jsonl">JSONL</option><option value="sqlite">SQLite</option></select></label><label>Bảng (SQLite)<input name="table" maxlength="60" placeholder="posts"></label></div>
+          <button class="primary-button" type="submit"><span data-icon="upload"></span>Nhập và phân tích</button>
+        </form>
+        <div id="import-result" class="result" hidden></div>
+      </article>
+      <article class="panel card"><header class="card-head"><h2>Lịch sử nhập</h2></header><div class="table-wrap"><table id="imports-table"><thead><tr><th>Thời gian</th><th>Tệp</th><th>Định dạng</th><th class="num">Tổng</th><th class="num">Thêm</th><th class="num">Cập nhật</th><th class="num">Trùng</th><th class="num">Lỗi</th></tr></thead><tbody></tbody></table></div></article>
+    </section>
+  </main>
+  <dialog id="post-dialog" aria-labelledby="detail-title"><div class="dialog-heading"><div><span id="detail-kicker" class="dialog-kicker">Chi tiết đánh giá</span><h2 id="detail-title">Bài viết</h2></div><div class="dialog-tools"><button id="detail-prev" class="page-button" type="button" aria-label="Bài trước (←)" title="Bài trước (←)">←</button><button id="detail-next" class="page-button" type="button" aria-label="Bài sau (→)" title="Bài sau (→)">→</button><button id="close-dialog" class="close-button" type="button" aria-label="Đóng">×</button></div></div><div id="post-detail" class="detail"></div></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body></html>

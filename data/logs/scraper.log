@@ -1,0 +1,70 @@
+2026-11-19 06:17:55,859 ERROR fb_scraper.agent.mode: Lệnh agent thất bại
+Traceback (most recent call last):
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\fb_scraper\agent\mode.py", line 233, in run_cli
+    result = asyncio.run(run_agent(args.url, args.max_posts, args.max_steps))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\phanh\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\phanh\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\phanh\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 685, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\fb_scraper\agent\mode.py", line 133, in run_agent
+    llm = create_llm()
+          ^^^^^^^^^^^^
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\fb_scraper\agent\mode.py", line 58, in create_llm
+    raise RuntimeError(
+RuntimeError: OPENAI_API_KEY đang là placeholder hoặc chưa được điền. Vui lòng thay bằng key thật từ https://platform.openai.com/api-keys
+2026-11-19 07:33:20,362 WARNING fb_scraper.common.page_actions: Chưa thấy vùng nội dung trên https://www.facebook.com/reel/1196419353343197/ sau 20000 ms
+2026-11-19 07:33:26,090 WARNING fb_scraper.posts.comments: Lỗi đọc bình luận tại https://www.facebook.com/reel/1196419353343197/
+Traceback (most recent call last):
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\fb_scraper\posts\comments.py", line 117, in scrape_top_comments
+    await expand_see_more(page)
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\fb_scraper\common\page_actions.py", line 53, in expand_see_more
+    buttons = await page.get_by_text(EXPAND_LABEL_RE).element_handles()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\.venv\Lib\site-packages\playwright\async_api\_generated.py", line 19051, in element_handles
+    return mapping.from_impl_list(await self._impl_obj.element_handles())
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\.venv\Lib\site-packages\playwright\_impl\_locator.py", line 332, in element_handles
+    return await self._frame.query_selector_all(self._selector)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\.venv\Lib\site-packages\playwright\_impl\_frame.py", line 381, in query_selector_all
+    await self._channel.send(
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 76, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 632, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TargetClosedError: Locator.element_handles: Target page, context or browser has been closed
+2026-11-19 07:34:09,886 WARNING fb_scraper.posts.pipeline: Không tải được ảnh 0 của bài pfbid032iGckmzgmmJ4BWjspz3hBxVw6BbuyK7zzuCWqLapFvbgtWF2oAbmC2feforFPhHJl
+Traceback (most recent call last):
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\fb_scraper\posts\pipeline.py", line 25, in download_images
+    response = await context.request.get(image_url, timeout=15000)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\.venv\Lib\site-packages\playwright\async_api\_generated.py", line 21275, in get
+    await self._impl_obj.get(
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\.venv\Lib\site-packages\playwright\_impl\_fetch.py", line 211, in get
+    return await self.fetch(
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\.venv\Lib\site-packages\playwright\_impl\_fetch.py", line 337, in fetch
+    return await self._inner_fetch(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\.venv\Lib\site-packages\playwright\_impl\_fetch.py", line 443, in _inner_fetch
+    response = await self._channel.send(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 76, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\phanh\Downloads\FB-main (1)\FB-main\Demo_Fb_scraper\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 632, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.Error: APIRequestContext.get: getaddrinfo ENOTFOUND scontent.fhan5-8.fna.fbcdn.net
+Call log:
+  - → GET https://scontent.fhan5-8.fna.fbcdn.net/v/t39.99422-6/914803502_1442933487410398_5584515430141006650_n.png?stp=dst-jpg_tt6&cstp=mx979x740&ctp=p180x540&_nc_cat=101&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=833d8c&_nc_ohc=VpI32Bjq50kQ7kNvwEKac2x&_nc_oc=AdrqH3AY_Bdx4rElMZY7iikT9YRSr18HtC4TRgfUUfImwZ8v8WSlskgI00-FlaRy1ZQ&_nc_zt=14&_nc_ht=scontent.fhan5-8.fna&_nc_gid=ms80pqi0tYfAcaK9dXbP_A&_nc_ss=7b2a8&oh=00_AQQxUKpJ3pX_GoShc-CIyWpwE1xADMzN92GAXVaqxnxa5Q&oe=6B042ED1
+    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36
+    - accept: */*
+    - accept-encoding: gzip,deflate,br
+
